@@ -8,8 +8,8 @@ OWNER_ID = 6497757690
 
 MSG_EFFECT = 5046509860389126442
 
-SHORT_URL = "linkshortify.com" # shortner url 
-SHORT_API = "" 
+SHORT_URL = "adrinolinks.in" # shortner url 
+SHORT_API = "92cd39bfdc492d108309b16f286d4f6b6aa560c6 " 
 SHORT_TUT = "https://t.me/How_to_Download_7x/26"
 
 # Bot Configuration
