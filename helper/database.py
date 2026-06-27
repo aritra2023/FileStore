@@ -125,6 +125,24 @@ class MongoDB:
         user = await self.user_data.find_one({'_id': user_id})
         return user.get('ban', False) if user else False
 
+    # ✅ 24-HOUR VERIFICATION FUNCTIONS
+
+    async def set_verify_status(self, user_id: int):
+        """Set user as verified by saving the current timestamp"""
+        await self.user_data.update_one(
+            {'_id': user_id},
+            {'$set': {'verify_token': datetime.now()}},
+            upsert=True
+        )
+
+    async def check_verify_status(self, user_id: int) -> bool:
+        """Check if user has been verified in the last 24 hours"""
+        user = await self.user_data.find_one({'_id': user_id})
+        if user and 'verify_token' in user:
+            # Calculate time difference
+            time_diff = datetime.now() - user['verify_token']
+            return time_diff.total_seconds() < 86400  # 86400 seconds = 24 hours
+        return False
     # ✅ FSUB CHANNELS FUNCTIONS
 
     async def set_fsub_channels(self, fsub_data: dict):
