@@ -34,23 +34,38 @@ async def start_command(client: Client, message: Message):
             base64_string = original_payload
 
             is_short_link = False
-            if base64_string.startswith("yu3elk"):
+            is_verification = False
+
+            # VERIFICATION LOGIC CATCH
+            if base64_string.startswith("verify_"):
+                base64_string = base64_string[7:] # Remove 'verify_'
+                is_verification = True
+            elif base64_string.startswith("yu3elk"):
                 base64_string = base64_string[6:-1]
                 is_short_link = True
 
         except IndexError:
             return await message.reply("Invalid command format.")
 
-        # 3. Check premium status
+        # 3. Check premium and verification status
         is_user_pro = await client.mongodb.is_pro(user_id)
-        
-        # 4. Check if shortner is enabled
+        is_verified = await client.mongodb.check_verify_status(user_id)
+
+        # 4. Handle Verification completion
+        if is_verification:
+            await client.mongodb.set_verify_status(user_id)
+            is_verified = True
+            await message.reply("✅ **Verification Successful!**\n\nYou can now download files directly for the next 24 hours without seeing any ads.")
+
+        # 5. Check if shortner is enabled
         shortner_enabled = getattr(client, 'shortner_enabled', True)
 
-        # 5. If user is not premium AND shortner is enabled, send short URL and return
-        if not is_user_pro and user_id != OWNER_ID and not is_short_link and shortner_enabled:
+        # 6. If user is not premium, NOT verified AND shortner is enabled, send short URL
+        if not is_user_pro and user_id != OWNER_ID and not is_verified and shortner_enabled:
             try:
-                short_link = get_short(f"https://t.me/{client.username}?start=yu3elk{base64_string}7", client)
+                # Add 'verify_' tag to the payload so bot knows when user returns
+                verify_payload = f"verify_{base64_string}"
+                short_link = get_short(f"https://t.me/{client.username}?start={verify_payload}", client)
             except Exception as e:
                 client.LOGGER(__name__, client.name).warning(f"Shortener failed: {e}")
                 return await message.reply("Couldn't generate short link.")
@@ -75,7 +90,7 @@ async def start_command(client: Client, message: Message):
             )
             return  # prevent sending actual files
 
-        # 6. Decode and prepare file IDs
+        # 7. Decode and prepare file IDs
         try:
             string = await decode(base64_string)
             argument = string.split("-")
@@ -92,7 +107,7 @@ async def start_command(client: Client, message: Message):
                 start_primary = int(encoded_start / primary_multiplier)
                 end_primary = int(encoded_end / primary_multiplier)
                 
-                # Check if the division results in clean integers (meaning this channel was used for encoding)
+                # Check if the division results in clean integers
                 if encoded_start % primary_multiplier == 0 and encoded_end % primary_multiplier == 0:
                     source_channel_id = client.db
                     start = start_primary
@@ -160,7 +175,7 @@ async def start_command(client: Client, message: Message):
             client.LOGGER(__name__, client.name).warning(f"Error decoding base64: {e}")
             return await message.reply("⚠️ Invalid or expired link.")
 
-        # 7. Get messages from the specific source channel first
+        # 8. Get messages from the specific source channel first
         temp_msg = await message.reply("Wait A Sec..")
         messages = []
 
@@ -235,7 +250,7 @@ async def start_command(client: Client, message: Message):
                 client.LOGGER(__name__, client.name).warning(f"Failed to send message: {e}")
                 pass
 
-        # 8. Auto delete timer
+        # 9. Auto delete timer
         if messages and client.auto_del > 0:
             # Create transfer link for getting files again (original base64_string)
             transfer_link = original_payload
@@ -251,7 +266,7 @@ async def start_command(client: Client, message: Message):
             ))
         return
 
-    # 9. Normal start message
+    # 10. Normal start message
     else:
         buttons = [[InlineKeyboardButton("Help", callback_data="about"), InlineKeyboardButton("Close", callback_data='close')]]
         if user_id in client.admins:
@@ -288,7 +303,7 @@ async def start_command(client: Client, message: Message):
 @Client.on_message(filters.command('request') & filters.private)
 async def request_command(client: Client, message: Message):
     user_id = message.from_user.id
-    is_admin = user_id in client.admins  # ✅ Fix this line
+    is_admin = user_id in client.admins 
     is_user_premium = await client.mongodb.is_pro(user_id)
 
     if is_admin or user_id == OWNER_ID:
@@ -326,7 +341,7 @@ async def request_command(client: Client, message: Message):
 @Client.on_message(filters.command('profile') & filters.private)
 async def my_plan(client: Client, message: Message):
     user_id = message.from_user.id
-    is_admin = user_id in client.admins  # ✅ Fix here
+    is_admin = user_id in client.admins
 
     if is_admin or user_id == OWNER_ID:
         await message.reply_text("🔹 You're my sensei! This command is only for users.")
